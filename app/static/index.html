@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Esmeraldas Resiliente | Hackathon UTLVTE 2026 - OpenCode</title>
+  <meta name="description" content="Plataforma de Prevencion y Gestion de Riesgos ante El Nino en Esmeraldas. Proyecto oficial del Equipo OpenCode (UTLVTE-9216).">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            inst: {
+              50: '#f8fafc',
+              100: '#f1f5f9',
+              200: '#e2e8f0',
+              700: '#334155',
+              800: '#1e293b',
+              900: '#0f172a',
+              950: '#020617'
+            },
+            primary: {
+              DEFAULT: '#0284c7',
+              dark: '#0369a1',
+              light: '#38bdf8'
+            },
+            nature: {
+              DEFAULT: '#059669',
+              dark: '#047857',
+              light: '#10b981'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  
+  <!-- Font Awesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+  <!-- Google Fonts: Inter y JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+    #map { height: 600px; width: 100%; border-radius: 0.5rem; z-index: 10; }
+    .panel-base { background-color: #0f172a; border: 1px solid #1e293b; }
+    .table-cell-custom { padding: 0.65rem 0.85rem; border-bottom: 1px solid #1e293b; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased">
+
+  <!-- BARRA DE NAVEGACION INSTITUCIONAL -->
+  <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        
+        <!-- Identidad Institucional -->
+        <div class="flex items-center gap-3">
+          <div class="h-10 w-10 rounded-lg bg-emerald-900/40 border border-emerald-600/50 flex items-center justify-center text-emerald-400 text-lg">
+            <i class="fa-solid fa-building-columns"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-lg font-bold tracking-tight text-white uppercase">Esmeraldas Resiliente</span>
+              <span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                PRODUCCION v2.0
+              </span>
+            </div>
+            <p class="text-xs text-slate-400">
+              Universidad Tecnica Luis Vargas Torres &bull; Facultad de Ingenierias &bull; Equipo <strong class="text-white">OpenCode</strong> (UTLVTE-9216)
+            </p>
+          </div>
+        </div>
+
+        <!-- Acciones Rapidas y Conectividad -->
+        <div class="flex items-center gap-2.5">
+          <!-- Indicador de Red -->
+          <div id="networkStatusBadge" class="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-slate-800 text-emerald-400 border border-slate-700">
+            <i class="fa-solid fa-signal text-emerald-400"></i>
+            <span id="networkStatusText">Conectado (En linea)</span>
+          </div>
+
+          <!-- Boton de Inyeccion de Escenario Oficial -->
+          <button id="btnLoadScenario" onclick="loadSimulationScenario()" class="flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white shadow-sm transition">
+            <i class="fa-solid fa-play"></i>
+            <span>Ejecutar Escenario Oficial: Jueves 06:00 AM</span>
+          </button>
+
+          <!-- Documentacion de API -->
+          <a href="/docs" target="_blank" class="px-3 py-1.5 rounded-md text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5">
+            <i class="fa-solid fa-book-open"></i>
+            <span class="hidden sm:inline">Swagger API</span>
+          </a>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- FRANJA DE LEMA Y METRICAS DEL CENTRO DE MANDO -->
+  <section class="bg-slate-900/60 border-b border-slate-800 py-3.5">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3">
+        <div>
+          <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+            <i class="fa-solid fa-bullhorn text-emerald-500"></i>
+            Lema Oficial del Concurso Academico
+          </span>
+          <div class="text-base font-bold text-white mt-0.5">
+            "Programar hoy para proteger vidas manana"
+          </div>
+        </div>
+        <div class="text-xs text-slate-400 bg-slate-950/80 px-3 py-1.5 rounded border border-slate-800">
+          <span class="text-slate-300 font-semibold">Eje Tecnologico de Evaluacion:</span> Inteligencia Artificial, Redes Neuronales/RandomForest y Analisis Geoespacial.
+        </div>
+      </div>
+
+      <!-- Cuadricula de Metricas Clave -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+        
+        <div class="panel-base p-2.5 rounded-lg">
+          <div class="text-slate-400 text-xs flex items-center justify-between">
+            <span>Incidentes Activos</span>
+            <i class="fa-solid fa-triangle-exclamation text-amber-500"></i>
+          </div>
+          <div id="kpiActiveIncidents" class="text-lg font-bold text-white mt-1">--</div>
+          <div class="text-[11px] text-amber-400 mt-0.5" id="kpiCriticalCount">-- Criticos</div>
+        </div>
+
+        <div class="panel-base p-2.5 rounded-lg">
+          <div class="text-slate-400 text-xs flex items-center justify-between">
+            <span>Ocupacion Albergues</span>
+            <i class="fa-solid fa-campground text-blue-400"></i>
+          </div>
+          <div id="kpiShelterPct" class="text-lg font-bold text-blue-400 mt-1">--%</div>
+          <div class="text-[11px] text-slate-400 mt-0.5" id="kpiShelterFraction">-- / -- plazas</div>
+        </div>
+
+        <div class="panel-base p-2.5 rounded-lg">
+          <div class="text-slate-400 text-xs flex items-center justify-between">
+            <span>Evacuados Censados</span>
+            <i class="fa-solid fa-person-shelter text-emerald-400"></i>
+          </div>
+          <div id="kpiEvacuated" class="text-lg font-bold text-emerald-400 mt-1">--</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">Personas asistidas</div>
+        </div>
+
+        <div class="panel-base p-2.5 rounded-lg">
+          <div class="text-slate-400 text-xs flex items-center justify-between">
+            <span>Alertas COE</span>
+            <i class="fa-solid fa-tower-broadcast text-rose-500"></i>
+          </div>
+          <div id="kpiAlertsCount" class="text-lg font-bold text-rose-400 mt-1">--</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">Boletines vigentes</div>
+        </div>
+
+        <div class="panel-base p-2.5 rounded-lg">
+          <div class="text-slate-400 text-xs flex items-center justify-between">
+            <span>Motor Predictivo IA</span>
+            <i class="fa-solid fa-brain text-purple-400"></i>
+          </div>
+          <div class="text-sm font-bold text-purple-300 mt-1.5">RandomForest</div>
+          <div class="text-[11px] text-emerald-400 mt-0.5"><i class="fa-solid fa-circle-check"></i> Operativo</div>
+        </div>
+
+        <div class="panel-base p-2.5 rounded-lg">
+          <div class="text-slate-400 text-xs flex items-center justify-between">
+            <span>Sincronizacion Offline</span>
+            <i class="fa-solid fa-hard-drive text-cyan-400"></i>
+          </div>
+          <div id="kpiOfflineQueue" class="text-lg font-bold text-cyan-400 mt-1">0</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">Registros locales</div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- PESTANAS DEL SISTEMA -->
+  <nav class="bg-slate-900 border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex overflow-x-auto gap-1.5 py-2 text-xs font-semibold scrollbar-none" id="navTabs">
+        <button onclick="switchTab('tab-gis')" class="nav-tab active px-3 py-1.5 rounded flex items-center gap-1.5 bg-slate-800 text-white border border-slate-700 whitespace-nowrap">
+          <i class="fa-solid fa-map-location-dot text-emerald-400"></i>
+          <span>1. Sistema de Informacion Geografica (SIG)</span>
+        </button>
+        <button onclick="switchTab('tab-coe')" class="nav-tab px-3 py-1.5 rounded flex items-center gap-1.5 bg-slate-950 text-slate-400 hover:text-white border border-transparent whitespace-nowrap">
+          <i class="fa-solid fa-tower-cell text-blue-400"></i>
+          <span>2. Panel de Mando y Control COE</span>
+        </button>
+        <button onclick="switchTab('tab-ai')" class="nav-tab px-3 py-1.5 rounded flex items-center gap-1.5 bg-slate-950 text-slate-400 hover:text-white border border-transparent whitespace-nowrap">
+          <i class="fa-solid fa-brain text-purple-400"></i>
+          <span>3. Modulo de Inteligencia Artificial (OpenCode)</span>
+        </button>
+        <button onclick="switchTab('tab-report')" class="nav-tab px-3 py-1.5 rounded flex items-center gap-1.5 bg-slate-950 text-slate-400 hover:text-white border border-transparent whitespace-nowrap">
+          <i class="fa-solid fa-mobile-screen text-amber-400"></i>
+          <span>4. Registro Ciudadano (Soporte Offline)</span>
+        </button>
+        <button onclick="switchTab('tab-shelters')" class="nav-tab px-3 py-1.5 rounded flex items-center gap-1.5 bg-slate-950 text-slate-400 hover:text-white border border-transparent whitespace-nowrap">
+          <i class="fa-solid fa-people-roof text-cyan-400"></i>
+          <span>5. Gestion de Albergues y Familias</span>
+        </button>
+        <button onclick="switchTab('tab-docs')" class="nav-tab px-3 py-1.5 rounded flex items-center gap-1.5 bg-slate-950 text-slate-400 hover:text-white border border-transparent whitespace-nowrap">
+          <i class="fa-solid fa-file-contract text-slate-400"></i>
+          <span>6. Entregables Oficiales y Rubrica</span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- CONTENEDOR PRINCIPAL -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex-grow w-full">
+
+    <!-- TAB 1: MAPA OPERATIVO SIG -->
+    <div id="tab-gis" class="tab-pane block space-y-3.5">
+      
+      <!-- Controles de Capas -->
+      <div class="panel-base p-3 rounded-lg flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+            <i class="fa-solid fa-layer-group text-emerald-400"></i> Capas Cartograficas:
+          </span>
+
+          <label class="flex items-center gap-1.5 cursor-pointer text-slate-300">
+            <input type="checkbox" id="layerRiskZones" checked onchange="toggleLayer('riskZones')" class="accent-emerald-600 rounded">
+            <span>Zonas de Amenaza (Poligonos)</span>
+          </label>
+
+          <label class="flex items-center gap-1.5 cursor-pointer text-slate-300">
+            <input type="checkbox" id="layerIncidents" checked onchange="toggleLayer('incidents')" class="accent-amber-600 rounded">
+            <span>Incidentes Georreferenciados</span>
+          </label>
+
+          <label class="flex items-center gap-1.5 cursor-pointer text-slate-300">
+            <input type="checkbox" id="layerShelters" checked onchange="toggleLayer('shelters')" class="accent-blue-600 rounded">
+            <span>Albergues Oficiales</span>
+          </label>
+
+          <label class="flex items-center gap-1.5 cursor-pointer text-slate-300">
+            <input type="checkbox" id="layerRoutes" checked onchange="toggleLayer('routes')" class="accent-emerald-600 rounded">
+            <span>Rutas Seguras de Evacuacion</span>
+          </label>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="refreshData()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded transition flex items-center gap-1">
+            <i class="fa-solid fa-arrows-rotate text-emerald-400"></i> Actualizar
+          </button>
+          <span class="text-slate-400 font-mono text-[11px]">Coordenadas Base: [-0.9682, -79.6517]</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-3.5">
+        <!-- Mapa Leaflet -->
+        <div class="lg:col-span-3 panel-base rounded-lg overflow-hidden border border-slate-800 shadow-xl relative">
+          <div id="map"></div>
+          
+          <!-- Leyenda Tecnica Flotante -->
+          <div class="absolute bottom-3 left-3 z-[1000] bg-slate-900/90 border border-slate-700 p-2.5 rounded text-xs space-y-1 shadow-lg pointer-events-none max-w-xs">
+            <div class="font-bold text-white text-[11px] uppercase tracking-wide border-b border-slate-800 pb-1">
+              <i class="fa-solid fa-circle-info text-blue-400 me-1"></i> Simbologia Cartografica
+            </div>
+            <div class="flex items-center gap-2 text-[11px] text-slate-300">
+              <span class="w-3 h-3 rounded-full bg-red-600"></span> Incidente Critico / Inundacion
+            </div>
+            <div class="flex items-center gap-2 text-[11px] text-slate-300">
+              <span class="w-3 h-3 rounded-full bg-amber-500"></span> Deslizamiento / Via Obstruida
+            </div>
+            <div class="flex items-center gap-2 text-[11px] text-slate-300">
+              <span class="w-3 h-3 rounded-full bg-blue-500"></span> Albergue Temporal Seguro
+            </div>
+            <div class="flex items-center gap-2 text-[11px] text-slate-300">
+              <span class="w-4 h-1 bg-emerald-500 rounded"></span> Ruta de Evacuacion Trazada
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel Lateral de Zonas Vulnerables -->
+        <div class="space-y-3">
+          <div class="panel-base p-3 rounded-lg border border-slate-800">
+            <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
+              <i class="fa-solid fa-map-pin text-emerald-400"></i>
+              Zonas Criticas bajo Monitoreo
+            </h3>
+            <p class="text-[11px] text-slate-400 mb-2.5">Haz clic sobre un sector para centrar el mapa:</p>
+            <div class="space-y-1.5 max-h-[510px] overflow-y-auto pr-1" id="riskZonesList">
+              <!-- Renderizado dinamico -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TAB 2: CENTRO DE OPERACIONES COE -->
+    <div id="tab-coe" class="tab-pane hidden space-y-3.5">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
+        
+        <!-- Bandeja de Incidentes (2 cols) -->
+        <div class="lg:col-span-2 panel-base p-4 rounded-lg border border-slate-800 space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+            <div>
+              <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-list-check text-blue-400"></i>
+                Bandeja de Incidentes y Despacho de Recursos
+              </h2>
+              <p class="text-xs text-slate-400">Ordenados por prioridad de atencion e indice de urgencia calculado por IA</p>
+            </div>
+            <button onclick="refreshIncidents()" class="text-xs px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded">
+              <i class="fa-solid fa-arrows-rotate"></i>
+            </button>
+          </div>
+
+          <div class="space-y-2 max-h-[620px] overflow-y-auto pr-1" id="incidentsList">
+            <!-- Renderizado de incidentes -->
+          </div>
+        </div>
+
+        <!-- Emision y Registro de Alertas (1 col) -->
+        <div class="space-y-3.5">
+          <!-- Formulario de Emision -->
+          <div class="panel-base p-4 rounded-lg border border-slate-800 space-y-2.5 text-xs">
+            <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5 mb-1">
+              <i class="fa-solid fa-bullhorn text-red-500"></i>
+              Emision de Alerta Temprana COE
+            </h3>
+            <form id="formCreateAlert" onsubmit="handleCreateAlert(event)" class="space-y-2">
+              <div>
+                <label class="block text-slate-300 font-semibold mb-1">Titulo de la Alerta</label>
+                <input type="text" id="alertTitle" required placeholder="Ej: Crecida repentina Rio Teaone" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+              </div>
+              <div>
+                <label class="block text-slate-300 font-semibold mb-1">Sector Territorial</label>
+                <input type="text" id="alertSector" required placeholder="Ej: 50 Casas, La Propicia 1" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+              </div>
+              <div>
+                <label class="block text-slate-300 font-semibold mb-1">Nivel Oficial</label>
+                <select id="alertLevel" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+                  <option value="Amarilla">Amarilla (Vigilancia e Informacion)</option>
+                  <option value="Naranja">Naranja (Preparacion y Alistamiento)</option>
+                  <option value="Roja" selected>Roja (Evacuacion Inmediata)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-slate-300 font-semibold mb-1">Contenido de la Disposicion</label>
+                <textarea id="alertMessage" rows="2" required placeholder="Instrucciones directas para evacuacion y movilizacion..." class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white"></textarea>
+              </div>
+              <button type="submit" class="w-full py-2 bg-red-700 hover:bg-red-600 font-bold text-white rounded transition flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-paper-plane"></i> Publicar y Difundir Alerta
+              </button>
+            </form>
+          </div>
+
+          <!-- Alertas Vigentes -->
+          <div class="panel-base p-4 rounded-lg border border-slate-800 space-y-2 text-xs">
+            <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5 mb-1">
+              <i class="fa-solid fa-radio text-amber-400"></i>
+              Boletines y Alertas Vigentes
+            </h3>
+            <div class="space-y-1.5 max-h-[300px] overflow-y-auto" id="alertsContainer">
+              <!-- Renderizado dinamico -->
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TAB 3: INTELIGENCIA ARTIFICIAL (EJE OPENCODE) -->
+    <div id="tab-ai" class="tab-pane hidden space-y-4">
+      
+      <!-- Ficha Tecnica de IA -->
+      <div class="panel-base p-4 rounded-lg border-l-4 border-l-purple-500 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+        <div>
+          <span class="text-[11px] font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
+            <i class="fa-solid fa-microchip"></i> Modulo de Especialidad &bull; Eje Oficial de OpenCode
+          </span>
+          <h2 class="text-base font-bold text-white mt-0.5">
+            Arquitectura de Inteligencia Artificial: Prediccion Hidrologica y Triaje NLP
+          </h2>
+          <p class="text-xs text-slate-300 max-w-3xl mt-1">
+            Integra algoritmos de <strong>Machine Learning (Random Forest)</strong> calibrados con datos de recurrencia fluvial de la provincia de Esmeraldas y procesamiento de lenguaje natural para categorizar automaticamente mensajes de auxilio de la ciudadania.
+          </p>
+        </div>
+        <div class="text-xs font-mono bg-slate-950 px-3 py-1.5 rounded border border-slate-800 text-purple-300">
+          scikit-learn &bull; Python 3.12
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        
+        <!-- SUITE 1: MACHINE LEARNING (PREDICCION HIDROLOGICA) -->
+        <div class="panel-base p-4 rounded-lg border border-slate-800 space-y-3 text-xs">
+          <div class="border-b border-slate-800 pb-2 flex items-center justify-between">
+            <h3 class="font-bold text-white uppercase tracking-wider text-xs flex items-center gap-1.5">
+              <i class="fa-solid fa-chart-line text-cyan-400"></i>
+              Modelo Predictivo de Inundaciones (Random Forest)
+            </h3>
+            <span class="font-mono text-[11px] text-slate-400">OpenCode-RiskNet</span>
+          </div>
+
+          <form id="formAIPredict" onsubmit="handleAIPredict(event)" class="space-y-3">
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">Sector Urbano o Rural a Analizar</label>
+              <select id="aiSector" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+                <option value="50 Casas - Ribera Teaone" selected>50 Casas - Ribera del Teaone</option>
+                <option value="Isla Luis Vargas Torres">Isla Luis Vargas Torres (Bajo Rio)</option>
+                <option value="San Rafael y Propicia 1">San Rafael y Propicia 1</option>
+                <option value="El Cabezon - Via Atacames">El Cabezon - Via Atacames (Ladera)</option>
+                <option value="Tabiazo Rural">Tabiazo Rural (Cuenca Alta)</option>
+              </select>
+            </div>
+
+            <div>
+              <div class="flex justify-between text-slate-300 mb-1">
+                <span>Precipitacion estimada (mm/h)</span>
+                <span class="font-mono text-cyan-400 font-bold" id="valPrecip">95.0 mm/h</span>
+              </div>
+              <input type="range" id="inputPrecip" min="0" max="200" step="2.5" value="95" oninput="document.getElementById('valPrecip').innerText = this.value + ' mm/h'" class="w-full accent-cyan-500">
+            </div>
+
+            <div>
+              <div class="flex justify-between text-slate-300 mb-1">
+                <span>Cota del Rio Teaone / Esmeraldas (metros)</span>
+                <span class="font-mono text-cyan-400 font-bold" id="valRiver">6.8 m</span>
+              </div>
+              <input type="range" id="inputRiver" min="1" max="10" step="0.2" value="6.8" oninput="document.getElementById('valRiver').innerText = this.value + ' m'" class="w-full accent-cyan-500">
+            </div>
+
+            <div>
+              <div class="flex justify-between text-slate-300 mb-1">
+                <span>Indice de Saturacion del Suelo (%)</span>
+                <span class="font-mono text-cyan-400 font-bold" id="valSoil">88 %</span>
+              </div>
+              <input type="range" id="inputSoil" min="10" max="100" step="1" value="88" oninput="document.getElementById('valSoil').innerText = this.value + ' %'" class="w-full accent-cyan-500">
+            </div>
+
+            <div>
+              <div class="flex justify-between text-slate-300 mb-1">
+                <span>Elevacion Topografica (msnm)</span>
+                <span class="font-mono text-cyan-400 font-bold" id="valElev">8 msnm</span>
+              </div>
+              <input type="range" id="inputElev" min="2" max="60" step="1" value="8" oninput="document.getElementById('valElev').innerText = this.value + ' msnm'" class="w-full accent-cyan-500">
+            </div>
+
+            <button type="submit" class="w-full py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-white rounded transition flex items-center justify-center gap-1.5">
+              <i class="fa-solid fa-calculator text-cyan-400"></i> Ejecutar Inferencia de Machine Learning
+            </button>
+          </form>
+
+          <!-- Resultados de Inferencia -->
+          <div id="aiPredictionResult" class="p-3 bg-slate-950 rounded border border-slate-800 space-y-2">
+            <span class="text-slate-500">Haz clic en Ejecutar Inferencia para procesar los parametros climaticos.</span>
+          </div>
+        </div>
+
+        <!-- SUITE 2: TRIAJE AUTOMATIZADO NLP -->
+        <div class="panel-base p-4 rounded-lg border border-slate-800 space-y-3 text-xs">
+          <div class="border-b border-slate-800 pb-2 flex items-center justify-between">
+            <h3 class="font-bold text-white uppercase tracking-wider text-xs flex items-center gap-1.5">
+              <i class="fa-solid fa-comments text-purple-400"></i>
+              Triaje Semantico de Emergencias (NLP)
+            </h3>
+            <span class="font-mono text-[11px] text-slate-400">Procesamiento de Texto</span>
+          </div>
+
+          <p class="text-slate-300">
+            Analiza automaticamente mensajes no estructurados procedentes de llamadas ciudadanas, canales de mensajeria o reportes de campo:
+          </p>
+
+          <form id="formAITriage" onsubmit="handleAITriage(event)" class="space-y-2.5">
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">Texto del Reporte Ciudadano</label>
+              <textarea id="nlpInputText" rows="4" required class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white" placeholder="Ej: Urgente, el rio Teaone se metio a 50 Casas, el agua llega al pecho, mi mama de 80 anos y mis dos ninos estan en el techo, necesitamos lanchas de rescate inmediato."></textarea>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
+              <span class="text-slate-400">Cargar caso de prueba:</span>
+              <button type="button" onclick="loadNLPCase(1)" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700">50 Casas (Inundacion)</button>
+              <button type="button" onclick="loadNLPCase(2)" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700">Via E15 (Derrumbe)</button>
+              <button type="button" onclick="loadNLPCase(3)" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700">Albergue (Suministros)</button>
+            </div>
+
+            <button type="submit" class="w-full py-2 bg-purple-900/60 hover:bg-purple-900/80 border border-purple-700 font-bold text-white rounded transition flex items-center justify-center gap-1.5">
+              <i class="fa-solid fa-magnifying-glass-chart"></i> Triar Mensaje con NLP
+            </button>
+          </form>
+
+          <!-- Resultados de Triaje -->
+          <div id="aiTriageResult" class="p-3 bg-slate-950 rounded border border-slate-800 space-y-2">
+            <span class="text-slate-500">Esperando texto para clasificacion y extraccion de entidades...</span>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- TAB 4: REPORTE CIUDADANO CON MODO OFFLINE -->
+    <div id="tab-report" class="tab-pane hidden space-y-4">
+      <div class="max-w-2xl mx-auto panel-base p-5 rounded-lg border border-slate-800 space-y-3.5 text-xs">
+        
+        <div class="border-b border-slate-800 pb-2.5 flex items-center justify-between">
+          <div>
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-mobile-screen-button text-amber-400"></i>
+              Portal Ciudadano de Reportes (Arquitectura Offline)
+            </h2>
+            <p class="text-[11px] text-slate-400">Capacidad de operacion autonoma sin conexion a internet para zonas con cortes de red.</p>
+          </div>
+          <span class="px-2.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 font-mono text-[11px]">
+            PWA / Cache
+          </span>
+        </div>
+
+        <form id="formCitizenReport" onsubmit="handleCitizenReport(event)" class="space-y-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">Sector o Barrio en Esmeraldas</label>
+              <input type="text" id="repSector" required placeholder="Ej: 50 Casas, San Rafael, Tachina" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+            </div>
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">Clasificacion del Incidente</label>
+              <select id="repCategory" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+                <option value="Inundación Urbana">Inundacion Urbana</option>
+                <option value="Desbordamiento de Río">Desbordamiento de Rio</option>
+                <option value="Deslizamiento de Tierra">Deslizamiento de Ladera</option>
+                <option value="Personas Atrapadas / Evacuación">Personas Atrapadas / Evacuacion</option>
+                <option value="Vía Interrumpida">Via Interrumpida</option>
+                <option value="Falta de Suministros">Falta de Suministros (Agua / Comida)</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">Descripcion Detallada del Incidente</label>
+            <textarea id="repDescription" rows="3" required placeholder="Indica personas en peligro, nivel alcanzado por el agua y necesidades inmediatas..." class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white"></textarea>
+          </div>
+
+          <!-- Coordenadas GPS -->
+          <div class="p-2.5 bg-slate-950 rounded border border-slate-800 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-semibold text-slate-300">Geolocalizacion del Evento</span>
+              <button type="button" onclick="getBrowserGPS()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded text-[11px] font-semibold transition flex items-center gap-1">
+                <i class="fa-solid fa-location-crosshairs text-emerald-400"></i> Obtener GPS del Navegador
+              </button>
+            </div>
+            <div class="grid grid-cols-2 gap-2 font-mono text-[11px]">
+              <div>
+                <span class="text-slate-500">Latitud:</span>
+                <input type="number" step="0.0001" id="repLat" value="-0.9521" required class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200">
+              </div>
+              <div>
+                <span class="text-slate-500">Longitud:</span>
+                <input type="number" step="0.0001" id="repLon" value="-79.6645" required class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200">
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">Nombre o Alias (Opcional)</label>
+              <input type="text" id="repName" placeholder="Ciudadano del sector" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+            </div>
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">Telefono de Contacto</label>
+              <input type="text" id="repPhone" placeholder="0982979921" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+            </div>
+          </div>
+
+          <button type="submit" class="w-full py-2.5 bg-emerald-700 hover:bg-emerald-600 font-bold text-white rounded transition flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-paper-plane"></i> Registrar Reporte de Emergencia
+          </button>
+        </form>
+
+        <!-- Cola de Sincronizacion Offline -->
+        <div id="offlineQueueContainer" class="p-3 bg-slate-950 rounded border border-slate-800 text-xs hidden space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-amber-400 flex items-center gap-1.5">
+              <i class="fa-solid fa-cloud-arrow-up"></i> Reportes guardados en almacenamiento local:
+            </span>
+            <button onclick="syncOfflineReports()" class="px-2.5 py-0.5 bg-amber-600 text-white font-bold rounded">
+              Sincronizar ahora
+            </button>
+          </div>
+          <div id="offlineQueueItems" class="space-y-1 font-mono text-[11px]"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TAB 5: ALBERGUES Y FAMILIAS -->
+    <div id="tab-shelters" class="tab-pane hidden space-y-3.5">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
+        
+        <!-- Tarjetas de Albergues (2 cols) -->
+        <div class="lg:col-span-2 panel-base p-4 rounded-lg border border-slate-800 space-y-3 text-xs">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+            <div>
+              <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-campground text-blue-400"></i>
+                Red Oficial de Albergues Temporales de Esmeraldas
+              </h2>
+              <p class="text-slate-400 text-[11px]">Capacidad instalada, reservas de agua potable y stock de raciones alimenticias</p>
+            </div>
+            <button onclick="loadShelters()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded">
+              <i class="fa-solid fa-arrows-rotate"></i>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5" id="sheltersCardsGrid">
+            <!-- Renderizado dinamico -->
+          </div>
+        </div>
+
+        <!-- Calculo de Reubicacion y Familias (1 col) -->
+        <div class="space-y-3.5">
+          <!-- Algoritmo de Reubicacion Optima -->
+          <div class="panel-base p-4 rounded-lg border border-slate-800 space-y-2.5 text-xs">
+            <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5 mb-1">
+              <i class="fa-solid fa-route text-emerald-400"></i>
+              Algoritmo de Reubicacion Optima
+            </h3>
+            <p class="text-slate-400 text-[11px]">
+              Determina el centro de evacuacion disponible mas cercano evitando la saturacion de recintos al limite de aforo:
+            </p>
+
+            <form id="formRelocate" onsubmit="handleRelocate(event)" class="space-y-2">
+              <div>
+                <label class="block text-slate-300 font-semibold mb-1">Sector de Origen de las Familias</label>
+                <select id="relocOrigin" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+                  <option value="50 Casas" selected>50 Casas</option>
+                  <option value="San Rafael">San Rafael</option>
+                  <option value="Isla Vargas Torres">Isla Luis Vargas Torres</option>
+                  <option value="Tabiazo">Tabiazo Rural</option>
+                  <option value="Tachina">Tachina</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-slate-300 font-semibold mb-1">Numero de Personas a Reubicar</label>
+                <input type="number" id="relocPeople" min="1" max="100" value="8" required class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+              </div>
+              <button type="submit" class="w-full py-2 bg-blue-700 hover:bg-blue-600 font-bold text-white rounded transition flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-arrows-split-up-and-left"></i> Calcular Albergue Recomendado
+              </button>
+            </form>
+
+            <div id="relocateResult" class="p-2.5 bg-slate-950 rounded border border-slate-800 text-[11px]">
+              <span class="text-slate-500">Ingresa los parametros para calcular la ruta recomendada.</span>
+            </div>
+          </div>
+
+          <!-- Censo de Familias -->
+          <div class="panel-base p-4 rounded-lg border border-slate-800 space-y-2 text-xs">
+            <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5 mb-1">
+              <i class="fa-solid fa-users text-amber-400"></i>
+              Censo de Familias Damnificadas
+            </h3>
+            <div class="space-y-1.5 max-h-[220px] overflow-y-auto" id="familiesList">
+              <!-- Renderizado dinamico -->
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TAB 6: ENTREGABLES OFICIALES Y RUBRICA -->
+    <div id="tab-docs" class="tab-pane hidden space-y-4">
+      <div class="panel-base p-5 rounded-lg border border-slate-800 space-y-4 text-xs">
+        
+        <div class="border-b border-slate-800 pb-2.5 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-award text-amber-400"></i>
+              Matriz de Cumplimiento de los 8 Entregables Oficiales (100 Pts)
+            </h2>
+            <p class="text-slate-400 text-[11px]">Evaluacion tecnica bajo los criterios del Comite Academico FACI UTLVTE</p>
+          </div>
+          <span class="px-2.5 py-1 bg-slate-950 border border-slate-800 font-mono text-[11px] text-slate-300">
+            OpenCode &bull; UTLVTE-9216
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          
+          <div class="p-3 rounded bg-slate-950 border border-slate-800 space-y-1">
+            <div class="flex items-center justify-between font-bold text-white">
+              <span>1. Prototipo Funcional</span>
+              <span class="text-emerald-400 font-mono">25 Pts</span>
+            </div>
+            <p class="text-slate-400 text-[11px]">Aplicacion web SPA operativa (FastAPI + Leaflet) resolviendo el escenario Jueves 06:00 AM.</p>
+          </div>
+
+          <div class="p-3 rounded bg-slate-950 border border-slate-800 space-y-1">
+            <div class="flex items-center justify-between font-bold text-white">
+              <span>2. Modulo de IA</span>
+              <span class="text-purple-400 font-mono">10 Pts</span>
+            </div>
+            <p class="text-slate-400 text-[11px]">Modelos de Machine Learning (Random Forest) para riesgo hidrologico y NLP para triaje semantico.</p>
+          </div>
+
+          <div class="p-3 rounded bg-slate-950 border border-slate-800 space-y-1">
+            <div class="flex items-center justify-between font-bold text-white">
+              <span>3. Componente SIG</span>
+              <span class="text-cyan-400 font-mono">15 Pts</span>
+            </div>
+            <p class="text-slate-400 text-[11px]">Poligonos de zonas criticas en Esmeraldas, rutas de evacuacion y geolocalizacion precisa.</p>
+          </div>
+
+          <div class="p-3 rounded bg-slate-950 border border-slate-800 space-y-1">
+            <div class="flex items-center justify-between font-bold text-white">
+              <span>4. Arquitectura Software</span>
+              <span class="text-blue-400 font-mono">15 Pts</span>
+            </div>
+            <p class="text-slate-400 text-[11px]">Diseno desacoplado en capas documentado en formato Markdown con diagramas Mermaid.</p>
+          </div>
+
+          <div class="p-3 rounded bg-slate-950 border border-slate-800 space-y-1">
+            <div class="flex items-center justify-between font-bold text-white">
+              <span>5. Modelo de Datos</span>
+              <span class="text-amber-400 font-mono">ER</span>
+            </div>
+            <p class="text-slate-400 text-[11px]">Diccionario de entidades normalizadas: incidentes, albergues, alertas, familias y poligonos.</p>
+          </div>
+
+          <div class="p-3 rounded bg-slate-950 border border-slate-800 space-y-1">
+            <div class="flex items-center justify-between font-bold text-white">
+              <span>6. Base de Datos PostGIS</span>
+              <span class="text-teal-400 font-mono">DDL SQL</span>
+            </div>
+            <p class="text-slate-400 text-[11px]">Scripts estructurados con soporte espacial PostgreSQL + PostGIS e indices GIST.</p>
+          </div>
+
+          <div class="p-3 rounded bg-slate-950 border border-slate-800 space-y-1">
+            <div class="flex items-center justify-between font-bold text-white">
+              <span>7. Servicios RESTful</span>
+              <span class="text-indigo-400 font-mono">OpenAPI</span>
+            </div>
+            <p class="text-slate-400 text-[11px]">Endpoints documentados y accesibles mediante Swagger UI y validaciones Pydantic.</p>
+          </div>
+
+          <div class="p-3 rounded bg-slate-950 border border-slate-800 space-y-1">
+            <div class="flex items-center justify-between font-bold text-white">
+              <span>8. Sustentacion y Pitch</span>
+              <span class="text-rose-400 font-mono">5 Min</span>
+            </div>
+            <p class="text-slate-400 text-[11px]">Guion estructurado demostrando la respuesta operativa frente al jurado calificador.</p>
+          </div>
+
+        </div>
+
+        <!-- Ficha de Registro del Equipo -->
+        <div class="p-3.5 rounded bg-slate-950 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+          <div>
+            <div class="font-bold text-white">Equipo OpenCode &bull; Ticket Oficial: UTLVTE-9216</div>
+            <div class="text-slate-400 text-[11px]">
+              Jhon Rios Rivera (Lider) &bull; Leandro Moreira Granda &bull; Mike Bowen Alvarez &bull; Israel Zambrano Tapia
+            </div>
+          </div>
+          <div class="text-slate-400 text-[11px]">
+            9no Ciclo Paralelo "A" &bull; Carrera de Tecnologias de la Informacion
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- PIE DE PAGINA INSTITUCIONAL -->
+  <footer class="bg-slate-900 border-t border-slate-800 py-3 text-xs text-slate-400">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
+      <div>
+        Universidad Tecnica Luis Vargas Torres de Esmeraldas &bull; Facultad de Ingenierias (FACI). Todos los derechos reservados 2026.
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="/docs" target="_blank" class="hover:text-emerald-400 transition flex items-center gap-1">
+          <i class="fa-solid fa-book"></i> Especificacion API
+        </a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  
+  <!-- Logica Frontend -->
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
