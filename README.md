@@ -1,6 +1,6 @@
 # Esmeraldas Resiliente
 
-### "Programar hoy para proteger vidas manana"
+### "Programar hoy para proteger vidas mañana"
 
 Plataforma integral de prevencion, monitoreo cartografico y gestion de emergencias ante los efectos del fenomeno El Nino en la ciudad y provincia de Esmeraldas, Ecuador.
 
